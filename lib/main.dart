@@ -16,7 +16,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Crypto Price Tracker',
+      title: 'Falcon',
       theme: AppTheme.darkTheme,
       home: const HomePage(),
     );
@@ -40,8 +40,8 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _loadCryptos();
-    // Refresh prices every 30 seconds
-    Future.delayed(const Duration(seconds: 30), () {
+    // Refresh every minute instead of 30 seconds
+    Future.delayed(const Duration(minutes: 1), () {
       if (mounted) _loadCryptos();
     });
   }
@@ -53,7 +53,7 @@ class _HomePageState extends State<HomePage> {
     });
 
     try {
-      final cryptos = await _cryptoService.getTopCryptos();
+      final cryptos = await _cryptoService.getMainCryptos();
       setState(() {
         _cryptos = cryptos;
         _isLoading = false;
@@ -70,7 +70,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Crypto Price Tracker'),
+        title: const Text('Falcon'),
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
@@ -155,7 +155,7 @@ class _HomePageState extends State<HomePage> {
         );
       },
       child: Card(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        margin: const EdgeInsets.symmetric(vertical: 8),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
@@ -164,7 +164,7 @@ class _HomePageState extends State<HomePage> {
                 Container(
                   width: 40,
                   height: 40,
-                  margin: const EdgeInsets.only(right: 16),
+                  margin: const EdgeInsets.only(right: 12),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     image: DecorationImage(
@@ -181,11 +181,14 @@ class _HomePageState extends State<HomePage> {
                       crypto.name,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: AppTheme.textLight,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     Text(
                       crypto.symbol.toUpperCase(),
-                      style: Theme.of(context).textTheme.bodyMedium,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppTheme.textGrey,
+                      ),
                     ),
                   ],
                 ),
@@ -197,6 +200,7 @@ class _HomePageState extends State<HomePage> {
                     priceFormat.format(crypto.currentPrice),
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: AppTheme.textLight,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                   _buildPriceChange(crypto.priceChangePercentage24h),

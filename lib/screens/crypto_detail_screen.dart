@@ -145,28 +145,31 @@ class _CryptoDetailScreenState extends State<CryptoDetailScreen> {
 
   Widget _buildTimeframeSelector() {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: _timeframes.map((timeframe) {
         final isSelected = timeframe == _selectedTimeframe;
-        return InkWell(
+        return GestureDetector(
           onTap: () {
-            setState(() => _selectedTimeframe = timeframe);
+            setState(() {
+              _selectedTimeframe = timeframe;
+            });
             _loadHistoricalData();
           },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            margin: const EdgeInsets.symmetric(horizontal: 4),
             decoration: BoxDecoration(
-              color: isSelected ? Theme.of(context).primaryColor : Colors.transparent,
+              color: isSelected ? AppTheme.primary : Colors.transparent,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: Theme.of(context).primaryColor,
+                color: isSelected ? AppTheme.primary : AppTheme.textGrey,
               ),
             ),
             child: Text(
               '${timeframe}D',
               style: TextStyle(
-                color: isSelected ? Colors.white : Theme.of(context).primaryColor,
-                fontWeight: FontWeight.bold,
+                color: isSelected ? AppTheme.textLight : AppTheme.textGrey,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ),
@@ -181,8 +184,8 @@ class _CryptoDetailScreenState extends State<CryptoDetailScreen> {
     }
 
     return Container(
-      height: 300,
-      padding: const EdgeInsets.all(16),
+      height: 200,
+      padding: const EdgeInsets.all(8),
       child: LineChart(
         LineChartData(
           gridData: FlGridData(show: false),
@@ -194,25 +197,62 @@ class _CryptoDetailScreenState extends State<CryptoDetailScreen> {
               isCurved: true,
               color: AppTheme.primary,
               barWidth: 2,
+              isStrokeCapRound: true,
               dotData: FlDotData(show: false),
               belowBarData: BarAreaData(
                 show: true,
                 color: AppTheme.primary.withOpacity(0.1),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppTheme.primary.withOpacity(0.2),
+                    AppTheme.primary.withOpacity(0.0),
+                  ],
+                ),
               ),
             ),
           ],
           lineTouchData: LineTouchData(
+            enabled: true,
             touchTooltipData: LineTouchTooltipData(
-              tooltipBgColor: AppTheme.cardDark,
+              tooltipBgColor: AppTheme.cardDark.withOpacity(0.8),
+              tooltipRoundedRadius: 8,
+              tooltipMargin: 0,
               getTooltipItems: (touchedSpots) {
                 return touchedSpots.map((spot) {
                   return LineTooltipItem(
                     '\$${spot.y.toStringAsFixed(2)}',
-                    TextStyle(color: AppTheme.textLight),
+                    TextStyle(
+                      color: AppTheme.textLight,
+                      fontWeight: FontWeight.bold,
+                    ),
                   );
                 }).toList();
               },
             ),
+            getTouchedSpotIndicator: (barData, spotIndexes) {
+              return spotIndexes.map((spotIndex) {
+                return TouchedSpotIndicatorData(
+                  FlLine(
+                    color: AppTheme.primary.withOpacity(0.4),
+                    strokeWidth: 2,
+                    dashArray: [4, 4],
+                  ),
+                  FlDotData(
+                    show: true,
+                    getDotPainter: (spot, percent, barData, index) {
+                      return FlDotCirclePainter(
+                        radius: 6,
+                        color: AppTheme.primary,
+                        strokeWidth: 2,
+                        strokeColor: AppTheme.textLight,
+                      );
+                    },
+                  ),
+                );
+              }).toList();
+            },
           ),
         ),
       ),

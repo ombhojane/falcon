@@ -5,10 +5,19 @@ import '../models/crypto_model.dart';
 class CryptoService {
   static const String baseUrl = 'https://api.coingecko.com/api/v3';
 
-  Future<List<CryptoCurrency>> getTopCryptos() async {
+  // List of supported cryptocurrencies
+  static const List<String> supportedCryptos = [
+    'bitcoin',
+    'ethereum',
+    'solana',
+    'matic-network', // Polygon
+  ];
+
+  Future<List<CryptoCurrency>> getMainCryptos() async {
     try {
+      final ids = supportedCryptos.join(',');
       final response = await http.get(Uri.parse(
-          '$baseUrl/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&sparkline=false'));
+          '$baseUrl/coins/markets?vs_currency=usd&ids=$ids&order=market_cap_desc&sparkline=false'));
 
       if (response.statusCode == 200) {
         List<dynamic> data = json.decode(response.body);
