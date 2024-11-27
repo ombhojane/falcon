@@ -211,13 +211,42 @@ class _HomePageState extends State<HomePage> {
     final color = percentage >= 0 ? AppTheme.accentGreen : AppTheme.accentRed;
     final percentageFormat = NumberFormat.decimalPercentPattern(decimalDigits: 2);
     
-    return Text(
-      '${percentage >= 0 ? '+' : ''}${percentageFormat.format(percentage / 100)}',
-      style: TextStyle(
-        color: color,
-        fontWeight: FontWeight.w500,
-        fontSize: 14,
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          percentage >= 0 ? '+\$' : '-\$',
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.w600,
+            fontSize: 12,
+          ),
+        ),
+        Text(
+          '${percentage.abs().toStringAsFixed(2)}',
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.w600,
+            fontSize: 12,
+          ),
+        ),
+        Container(
+          margin: const EdgeInsets.only(left: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            '${percentage >= 0 ? '+' : ''}${percentageFormat.format(percentage / 100)}',
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
