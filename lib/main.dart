@@ -5,8 +5,15 @@ import 'services/crypto_service.dart';
 import 'screens/search_screen.dart';
 import 'screens/crypto_detail_screen.dart';
 import 'theme/app_theme.dart';
+import 'screens/alert_screen.dart';
+import 'services/alert_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  final alertService = AlertService();
+  await alertService.initialize();
+  
   runApp(const MyApp());
 }
 
@@ -19,6 +26,9 @@ class MyApp extends StatelessWidget {
       title: 'Falcon',
       theme: AppTheme.darkTheme,
       home: const HomePage(),
+      routes: {
+        '/alerts': (context) => const AlertScreen(),
+      },
     );
   }
 }
@@ -79,6 +89,12 @@ class _HomePageState extends State<HomePage> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadCryptos,
+          ),
+          IconButton(
+            icon: const Icon(Icons.notifications),
+            onPressed: () {
+              Navigator.pushNamed(context, '/alerts');
+            },
           ),
         ],
       ),

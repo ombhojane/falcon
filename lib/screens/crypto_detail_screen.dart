@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../models/crypto_model.dart';
 import '../services/crypto_service.dart';
 import '../theme/app_theme.dart';
+import '../services/alert_service.dart';
+import '../models/alert_model.dart';
 
 class CryptoDetailScreen extends StatefulWidget {
   final CryptoCurrency crypto;
@@ -16,6 +18,7 @@ class CryptoDetailScreen extends StatefulWidget {
 
 class _CryptoDetailScreenState extends State<CryptoDetailScreen> {
   final CryptoService _cryptoService = CryptoService();
+  final AlertService _alertService = AlertService();
   List<FlSpot> _pricePoints = [];
   bool _isLoading = false;
   String _selectedTimeframe = '1W'; // Default to 1 week
@@ -58,6 +61,40 @@ class _CryptoDetailScreenState extends State<CryptoDetailScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications),
+            onPressed: () async {
+              try {
+                await _alertService.showTestNotification(
+                  widget.crypto.name,
+                  widget.crypto.currentPrice,
+                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Test notification sent!'),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to send notification: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.add_alert_outlined),
+            onPressed: _showAddAlertDialog,
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -76,6 +113,132 @@ class _CryptoDetailScreenState extends State<CryptoDetailScreen> {
                 _buildStatistics(),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAddAlertDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => _buildAlertBottomSheet(),
+    );
+  }
+
+  Widget _buildAlertBottomSheet() {
+    final TextEditingController priceController = TextEditingController();
+    bool isGreaterThan = true;
+
+    return StatefulBuilder(
+      builder: (context, setState) => Container(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        decoration: const BoxDecoration(
+          color: Color(0xFF1C1C1E),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Set Price Alert',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Text(
+                    'Alert when price is',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: const Text('Greater'),
+                    selected: isGreaterThan,
+                    onSelected: (selected) {
+                      setState(() => isGreaterThan = true);
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: const Text('Less'),
+                    selected: !isGreaterThan,
+                    onSelected: (selected) {
+                      setState(() => isGreaterThan = false);
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: priceController,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Target Price (\$)',
+                  labelStyle: TextStyle(color: Colors.white.withOpacity(0.8)),
+                  enabledBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white24),
+                  ),
+                  focusedBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: Theme.of(context).primaryColor,
+                ),
+                onPressed: () {
+                  final price = double.tryParse(priceController.text);
+                  if (price != null) {
+                    final alert = PriceAlert(
+                      cryptoId: widget.crypto.id,
+                      targetPrice: price,
+                      isGreaterThan: isGreaterThan,
+                    );
+                    _alertService.addAlert(alert);
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Alert set for ${widget.crypto.name} at \$${price.toStringAsFixed(2)}',
+                        ),
+                      ),
+                    );
+                  }
+                },
+                child: const Text(
+                  'Set Alert',
+                  style: TextStyle(fontSize: 16),
+                ),
+              ),
+            ],
           ),
         ),
       ),

@@ -30,17 +30,35 @@ class CryptoService {
     }
   }
 
+  Future<CryptoCurrency?> getCryptoById(String id) async {
+    try {
+      final response = await http.get(Uri.parse(
+          '$baseUrl/coins/markets?vs_currency=usd&ids=$id&order=market_cap_desc&sparkline=false'));
+
+      if (response.statusCode == 200) {
+        List<dynamic> data = json.decode(response.body);
+        if (data.isNotEmpty) {
+          return CryptoCurrency.fromJson(data.first);
+        }
+        return null;
+      } else {
+        throw Exception('Failed to load crypto data');
+      }
+    } catch (e) {
+      throw Exception('Error fetching crypto data: $e');
+    }
+  }
+
   Future<List<List<double>>> getHistoricalData(String id, String timeframe) async {
     try {
-      // Convert timeframe to API parameters
       final Map<String, String> timeframeParams = {
-        '1H': '1', // 1 hour data points for last day
-        '1W': '7',  // 7 days
-        '1M': '30', // 30 days
-        'ALL': 'max' // Maximum available data
+        '1H': '1',
+        '1W': '7',
+        '1M': '30',
+        'ALL': 'max'
       };
 
-      final String days = timeframeParams[timeframe] ?? '7'; // Default to 7 days
+      final String days = timeframeParams[timeframe] ?? '7';
       final String interval = timeframe == '1H' ? 'hourly' : 'daily';
       
       final response = await http.get(Uri.parse(
@@ -63,16 +81,20 @@ class CryptoService {
   }
 
   Future<List<CryptoCurrency>> searchCryptos(String query) async {
-    final response = await http.get(
-        Uri.parse('$baseUrl/search?query=$query'));
-    
-    if (response.statusCode == 200) {
-      Map<String, dynamic> data = json.decode(response.body);
-      return (data['coins'] as List)
-          .map((coin) => CryptoCurrency.fromJson(coin))
-          .toList();
-    } else {
-      throw Exception('Failed to search cryptos');
+    try {
+      final response = await http.get(
+          Uri.parse('$baseUrl/search?query=$query'));
+      
+      if (response.statusCode == 200) {
+        Map<String, dynamic> data = json.decode(response.body);
+        return (data['coins'] as List)
+            .map((coin) => CryptoCurrency.fromJson(coin))
+            .toList();
+      } else {
+        throw Exception('Failed to search cryptos');
+      }
+    } catch (e) {
+      throw Exception('Error searching cryptos: $e');
     }
   }
 }
