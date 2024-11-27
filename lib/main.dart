@@ -16,7 +16,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Falcon',
+      title: 'Falcon Omi',
       theme: AppTheme.darkTheme,
       home: const HomePage(),
     );
@@ -70,7 +70,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Falcon'),
+        title: const Text('Falcon for Profits'),
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
