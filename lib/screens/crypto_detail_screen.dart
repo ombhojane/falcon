@@ -18,8 +18,8 @@ class _CryptoDetailScreenState extends State<CryptoDetailScreen> {
   final CryptoService _cryptoService = CryptoService();
   List<FlSpot> _pricePoints = [];
   bool _isLoading = false;
-  String _selectedTimeframe = '7'; // Default to 7 days
-  final List<String> _timeframes = ['1', '7', '30', '365'];
+  String _selectedTimeframe = '1W'; // Default to 1 week
+  final List<String> _timeframes = ['1H', '1W', '1M', 'ALL']; // Updated timeframes
 
   @override
   void initState() {
@@ -144,6 +144,9 @@ class _CryptoDetailScreenState extends State<CryptoDetailScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: _timeframes.map((timeframe) {
           final isSelected = timeframe == _selectedTimeframe;
+          final displayText = timeframe == '1H' ? '1D' : // Show as 1D instead of 1H
+                            timeframe == '1W' ? '1W' :
+                            timeframe == '1M' ? '1M' : 'ALL';
           return GestureDetector(
             onTap: () {
               setState(() {
@@ -154,16 +157,13 @@ class _CryptoDetailScreenState extends State<CryptoDetailScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: isSelected
-                    ? Colors.white.withOpacity(0.1)
-                    : Colors.transparent,
+                color: isSelected ? Colors.white.withOpacity(0.1) : Colors.transparent,
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                timeframe,
+                displayText,
                 style: TextStyle(
-                  color:
-                      isSelected ? Colors.white : Colors.white.withOpacity(0.5),
+                  color: isSelected ? Colors.white : Colors.white.withOpacity(0.5),
                   fontSize: 14,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                 ),

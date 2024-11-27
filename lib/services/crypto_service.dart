@@ -32,8 +32,16 @@ class CryptoService {
 
   Future<List<List<double>>> getHistoricalData(String id, String timeframe) async {
     try {
-      final String interval = timeframe == 'H' ? 'hourly' : 'daily';
-      final String days = timeframe == 'H' ? '1' : timeframe;
+      // Convert timeframe to API parameters
+      final Map<String, String> timeframeParams = {
+        '1H': '1', // 1 hour data points for last day
+        '1W': '7',  // 7 days
+        '1M': '30', // 30 days
+        'ALL': 'max' // Maximum available data
+      };
+
+      final String days = timeframeParams[timeframe] ?? '7'; // Default to 7 days
+      final String interval = timeframe == '1H' ? 'hourly' : 'daily';
       
       final response = await http.get(Uri.parse(
           '$baseUrl/coins/$id/market_chart?vs_currency=usd&days=$days&interval=$interval'));
