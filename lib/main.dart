@@ -7,6 +7,8 @@ import 'screens/crypto_detail_screen.dart';
 import 'theme/app_theme.dart';
 import 'screens/alert_screen.dart';
 import 'services/alert_service.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'dart:async';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,18 +47,48 @@ class _HomePageState extends State<HomePage> {
   List<CryptoCurrency> _cryptos = [];
   bool _isLoading = false;
   String _error = '';
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
-    _loadCryptos();
-    // Refresh every minute instead of 30 seconds
-    Future.delayed(const Duration(minutes: 1), () {
-      if (mounted) _loadCryptos();
+    _checkConnectivityAndLoad();
+    // Set up periodic refresh
+    _refreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) _checkConnectivityAndLoad();
     });
   }
 
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _checkConnectivityAndLoad() async {
+    try {
+      final connectivity = await Connectivity().checkConnectivity();
+      if (connectivity == ConnectivityResult.none) {
+        setState(() {
+          _error = 'No internet connection';
+          _isLoading = false;
+        });
+        return;
+      }
+      await _loadCryptos();
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   Future<void> _loadCryptos() async {
+    if (!mounted) return;
+    
     setState(() {
       _isLoading = true;
       _error = '';
@@ -64,15 +96,19 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final cryptos = await _cryptoService.getMainCryptos();
-      setState(() {
-        _cryptos = cryptos;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _cryptos = cryptos;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
     }
   }
 

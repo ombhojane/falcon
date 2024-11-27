@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/crypto_model.dart';
@@ -16,15 +18,30 @@ class CryptoService {
   Future<List<CryptoCurrency>> getMainCryptos() async {
     try {
       final ids = supportedCryptos.join(',');
-      final response = await http.get(Uri.parse(
-          '$baseUrl/coins/markets?vs_currency=usd&ids=$ids&order=market_cap_desc&sparkline=false'));
+      final response = await http.get(
+        Uri.parse('$baseUrl/coins/markets?vs_currency=usd&ids=$ids&order=market_cap_desc&sparkline=false'),
+        headers: {
+          'Accept': 'application/json',
+        },
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException('Connection timeout. Please check your internet connection.');
+        },
+      );
 
       if (response.statusCode == 200) {
         List<dynamic> data = json.decode(response.body);
         return data.map((json) => CryptoCurrency.fromJson(json)).toList();
+      } else if (response.statusCode == 429) {
+        throw Exception('API rate limit exceeded. Please try again later.');
       } else {
-        throw Exception('Failed to load crypto data');
+        throw Exception('Failed to load crypto data. Status: ${response.statusCode}');
       }
+    } on SocketException catch (e) {
+      throw Exception('Network error. Please check your internet connection.');
+    } on TimeoutException catch (e) {
+      throw Exception('Connection timeout. Please check your internet connection.');
     } catch (e) {
       throw Exception('Error fetching crypto data: $e');
     }
