@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'models/crypto_model.dart';
 import 'services/crypto_service.dart';
@@ -9,12 +10,23 @@ import 'screens/alert_screen.dart';
 import 'services/alert_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'dart:async';
+import 'package:workmanager/workmanager.dart';
+import 'services/wallet_service.dart';
+import 'screens/wallet_import_screen.dart';
+import 'models/wallet_model.dart';
+import 'screens/account_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   final alertService = AlertService();
   await alertService.initialize();
+  
+  // Initialize Workmanager
+  await Workmanager().initialize(
+    callbackDispatcher,
+    isInDebugMode: kDebugMode,
+  );
   
   runApp(const MyApp());
 }
@@ -44,25 +56,50 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final CryptoService _cryptoService = CryptoService();
+  final WalletService _walletService = WalletService();
   List<CryptoCurrency> _cryptos = [];
-  bool _isLoading = false;
-  String _error = '';
-  Timer? _refreshTimer;
+  bool _isLoading = true;
+  Timer? _timer;
+  WalletInfo? _wallet;
+  bool _isLoadingWallet = false;
+  String? _userName;
 
   @override
   void initState() {
     super.initState();
     _checkConnectivityAndLoad();
-    // Set up periodic refresh
-    _refreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
-      if (mounted) _checkConnectivityAndLoad();
-    });
+    _loadWallet();
   }
 
-  @override
-  void dispose() {
-    _refreshTimer?.cancel();
-    super.dispose();
+  Future<void> _loadWallet() async {
+    setState(() => _isLoadingWallet = true);
+    try {
+      final wallet = await _walletService.getStoredWallet();
+      if (wallet != null) {
+        final balances = await _walletService.getBalances(wallet);
+        setState(() {
+          _wallet = WalletInfo(
+            address: wallet.address,
+            privateKey: wallet.privateKey,
+            balances: balances,
+            walletType: wallet.walletType,
+          );
+        });
+      }
+    } finally {
+      setState(() => _isLoadingWallet = false);
+    }
+  }
+
+  Future<void> _importWallet() async {
+    final result = await Navigator.push<WalletInfo>(
+      context,
+      MaterialPageRoute(builder: (context) => const WalletImportScreen()),
+    );
+    
+    if (result != null) {
+      setState(() => _wallet = result);
+    }
   }
 
   Future<void> _checkConnectivityAndLoad() async {
@@ -70,7 +107,6 @@ class _HomePageState extends State<HomePage> {
       final connectivity = await Connectivity().checkConnectivity();
       if (connectivity == ConnectivityResult.none) {
         setState(() {
-          _error = 'No internet connection';
           _isLoading = false;
         });
         return;
@@ -79,7 +115,6 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
           _isLoading = false;
         });
       }
@@ -91,7 +126,6 @@ class _HomePageState extends State<HomePage> {
     
     setState(() {
       _isLoading = true;
-      _error = '';
     });
 
     try {
@@ -105,7 +139,6 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
           _isLoading = false;
         });
       }
@@ -115,24 +148,64 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.backgroundDark,
       appBar: AppBar(
-        title: const Text('Falcon'),
+        backgroundColor: AppTheme.cardDark,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Hello, ${_userName ?? "User"}',
+              style: AppTheme.titleLarge,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: _openSearch,
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: AppTheme.primary,
+            child: IconButton(
+              icon: const Icon(Icons.person, color: AppTheme.textLight),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AccountScreen(
+                      wallet: _wallet,
+                      onBack: () => Navigator.pop(context),
+                      onWalletImport: _importWallet,
+                      onNameUpdate: (name) {
+                        setState(() {
+                          _userName = name;
+                        });
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          Tooltip(
+            message: 'Search cryptocurrencies',
+            child: IconButton(
+              icon: const Icon(Icons.search, size: 26, color: AppTheme.textLight),
+              onPressed: _openSearch,
+            ),
+          ),
+          Tooltip(
+            message: 'Refresh data',
+            child: IconButton(
+              icon: const Icon(Icons.refresh, size: 26, color: AppTheme.textLight),
+              onPressed: _loadCryptos,
+            ),
           ),
           IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadCryptos,
-          ),
-          IconButton(
-            icon: const Icon(Icons.notifications),
-            onPressed: () {
-              Navigator.pushNamed(context, '/alerts');
-            },
+            icon: const Icon(Icons.notifications, color: AppTheme.textLight),
+            onPressed: () => Navigator.pushNamed(context, '/alerts'),
           ),
         ],
+        elevation: 0,
       ),
       body: _buildBody(),
     );
@@ -165,32 +238,71 @@ class _HomePageState extends State<HomePage> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_error.isNotEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(_error, style: const TextStyle(color: Colors.red)),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadCryptos,
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      );
+    if (_cryptos.isEmpty) {
+      return const Center(child: Text('No cryptocurrencies available'));
     }
 
-    return RefreshIndicator(
-      onRefresh: _loadCryptos,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _cryptos.length,
-        itemBuilder: (context, index) {
-          final crypto = _cryptos[index];
-          return _buildCryptoCard(crypto);
-        },
-      ),
+    return ListView.builder(
+      padding: const EdgeInsets.only(top: 8),
+      itemCount: _cryptos.length + 1,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          // Wallet balance card
+          return Column(
+            children: [
+              Card(
+                color: AppTheme.cardDark,
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Your Balance',
+                        style: AppTheme.titleMedium.copyWith(color: AppTheme.textGrey),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        NumberFormat.currency(symbol: '\$').format(_wallet?.balances['SOL'] ?? 0.0),
+                        style: AppTheme.headlineLarge,
+                      ),
+                      if (_wallet == null) ...[
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _importWallet,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text('Import Wallet'),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: Row(
+                  children: [
+                    Text(
+                      'Cryptocurrencies',
+                      style: AppTheme.titleLarge,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        }
+        return _buildCryptoCard(_cryptos[index - 1]);
+      },
     );
   }
 
@@ -231,12 +343,12 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     Text(
                       crypto.name,
-                      style: Theme.of(context).textTheme.titleMedium,
+                      style: AppTheme.titleMedium,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       crypto.symbol.toUpperCase(),
-                      style: Theme.of(context).textTheme.bodyMedium,
+                      style: AppTheme.bodyMedium,
                     ),
                   ],
                 ),
@@ -246,7 +358,7 @@ class _HomePageState extends State<HomePage> {
                 children: [
                   Text(
                     priceFormat.format(crypto.currentPrice),
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: AppTheme.titleMedium,
                   ),
                   const SizedBox(height: 4),
                   _buildPriceChange(crypto.priceChangePercentage24h),
