@@ -15,6 +15,7 @@ import 'services/wallet_service.dart';
 import 'screens/wallet_import_screen.dart';
 import 'models/wallet_model.dart';
 import 'screens/account_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -62,13 +63,21 @@ class _HomePageState extends State<HomePage> {
   Timer? _timer;
   WalletInfo? _wallet;
   bool _isLoadingWallet = false;
-  String? _userName;
+  String _userName = "User";
 
   @override
   void initState() {
     super.initState();
     _checkConnectivityAndLoad();
     _loadWallet();
+    _loadUserName();
+  }
+
+  Future<void> _loadUserName() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _userName = prefs.getString('user_name') ?? "User";
+    });
   }
 
   Future<void> _loadWallet() async {
@@ -145,169 +154,206 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _refreshData() async {
+    setState(() {
+      _isLoading = true;
+    });
+    await _checkConnectivityAndLoad();
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundDark,
-      appBar: AppBar(
-        backgroundColor: AppTheme.cardDark,
-        title: Row(
+      body: SafeArea(
+        child: _isLoading 
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _refreshData,
+              child: CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Header with profile and actions
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => AccountScreen(
+                                        wallet: _wallet,
+                                        onBack: () => Navigator.pop(context),
+                                        onWalletImport: _importWallet,
+                                        onNameUpdate: (name) => setState(() {
+                                          _userName = name;
+                                          if (_wallet != null) {
+                                            _wallet!.name = name;
+                                          }
+                                        }),
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      backgroundColor: AppTheme.surfaceDark,
+                                      radius: 20,
+                                      child: Icon(Icons.account_circle, color: AppTheme.textLight),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      _userName,
+                                      style: AppTheme.titleLarge,
+                                    ),
+                                    Icon(Icons.keyboard_arrow_down, color: AppTheme.textLight),
+                                  ],
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  IconButton(
+                                    icon: Icon(Icons.search, color: AppTheme.textLight),
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(builder: (context) => const SearchScreen()),
+                                      );
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: Icon(Icons.notifications_outlined, color: AppTheme.textLight),
+                                    onPressed: () {
+                                      Navigator.pushNamed(context, '/alerts');
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          
+                          // Balance Section
+                          Center(
+                            child: Column(
+                              children: [
+                                Text(
+                                  '\$${_wallet?.balances.values.fold(0.0, (prev, curr) => prev + curr).toStringAsFixed(2) ?? '0.00'}',
+                                  style: AppTheme.headlineLarge.copyWith(
+                                    fontSize: 40,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      '+\$0.32',
+                                      style: AppTheme.titleMedium.copyWith(
+                                        color: AppTheme.accentGreen,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      '+2.54%',
+                                      style: AppTheme.titleMedium.copyWith(
+                                        color: AppTheme.accentGreen,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          
+                          // Action Buttons
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              _buildActionButton(
+                                icon: Icons.send,
+                                label: 'Send',
+                                onTap: () {},
+                              ),
+                              _buildActionButton(
+                                icon: Icons.swap_horiz,
+                                label: 'Swap',
+                                onTap: () {},
+                              ),
+                              _buildActionButton(
+                                icon: Icons.account_balance_wallet,
+                                label: 'Buy',
+                                onTap: () {},
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  // Crypto List
+                  SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final crypto = _cryptos[index];
+                        return _buildCryptoCard(crypto);
+                      },
+                      childCount: _cryptos.length,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 72,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceDark,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Icon(icon, color: AppTheme.primary),
+            const SizedBox(height: 8),
             Text(
-              'Hello, ${_userName ?? "User"}',
-              style: AppTheme.titleLarge,
-              overflow: TextOverflow.ellipsis,
+              label,
+              style: AppTheme.bodyMedium,
             ),
           ],
         ),
-        actions: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: AppTheme.primary,
-            child: IconButton(
-              icon: const Icon(Icons.person, color: AppTheme.textLight),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => AccountScreen(
-                      wallet: _wallet,
-                      onBack: () => Navigator.pop(context),
-                      onWalletImport: _importWallet,
-                      onNameUpdate: (name) {
-                        setState(() {
-                          _userName = name;
-                        });
-                      },
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          Tooltip(
-            message: 'Search cryptocurrencies',
-            child: IconButton(
-              icon: const Icon(Icons.search, size: 26, color: AppTheme.textLight),
-              onPressed: _openSearch,
-            ),
-          ),
-          Tooltip(
-            message: 'Refresh data',
-            child: IconButton(
-              icon: const Icon(Icons.refresh, size: 26, color: AppTheme.textLight),
-              onPressed: _loadCryptos,
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.notifications, color: AppTheme.textLight),
-            onPressed: () => Navigator.pushNamed(context, '/alerts'),
-          ),
-        ],
-        elevation: 0,
       ),
-      body: _buildBody(),
-    );
-  }
-
-  Future<void> _openSearch() async {
-    final selected = await Navigator.push<CryptoCurrency>(
-      context,
-      MaterialPageRoute(builder: (context) => const SearchScreen()),
-    );
-
-    if (selected != null && mounted) {
-      // Check if the cryptocurrency is already in the list
-      if (!_cryptos.any((crypto) => crypto.id == selected.id)) {
-        setState(() {
-          _cryptos.add(selected);
-        });
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Cryptocurrency already in list')),
-          );
-        }
-      }
-    }
-  }
-
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_cryptos.isEmpty) {
-      return const Center(child: Text('No cryptocurrencies available'));
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.only(top: 8),
-      itemCount: _cryptos.length + 1,
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          // Wallet balance card
-          return Column(
-            children: [
-              Card(
-                color: AppTheme.cardDark,
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    children: [
-                      Text(
-                        'Your Balance',
-                        style: AppTheme.titleMedium.copyWith(color: AppTheme.textGrey),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        NumberFormat.currency(symbol: '\$').format(_wallet?.balances['SOL'] ?? 0.0),
-                        style: AppTheme.headlineLarge,
-                      ),
-                      if (_wallet == null) ...[
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _importWallet,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primary,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: const Text('Import Wallet'),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: Row(
-                  children: [
-                    Text(
-                      'Cryptocurrencies',
-                      style: AppTheme.titleLarge,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
-        }
-        return _buildCryptoCard(_cryptos[index - 1]);
-      },
     );
   }
 
   Widget _buildCryptoCard(CryptoCurrency crypto) {
-    final priceFormat = NumberFormat.currency(symbol: '\$');
+    final isPositiveChange = crypto.priceChangePercentage24h >= 0;
+    final changeColor = isPositiveChange ? AppTheme.accentGreen : AppTheme.accentRed;
     
     return GestureDetector(
       onTap: () {
@@ -318,99 +364,58 @@ class _HomePageState extends State<HomePage> {
           ),
         );
       },
-      child: Card(
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              if (crypto.image != null)
-                Container(
-                  width: 48,
-                  height: 48,
-                  margin: const EdgeInsets.only(right: 16),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    image: DecorationImage(
-                      image: NetworkImage(crypto.image!),
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      crypto.name,
-                      style: AppTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      crypto.symbol.toUpperCase(),
-                      style: AppTheme.bodyMedium,
-                    ),
-                  ],
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.cardDark,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                image: DecorationImage(
+                  image: NetworkImage(crypto.image ?? 'https://via.placeholder.com/40'),
+                  fit: BoxFit.cover,
                 ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    priceFormat.format(crypto.currentPrice),
+                    crypto.name,
                     style: AppTheme.titleMedium,
                   ),
-                  const SizedBox(height: 4),
-                  _buildPriceChange(crypto.priceChangePercentage24h),
+                  Text(
+                    '${crypto.balance.toStringAsFixed(5)} ${crypto.symbol.toUpperCase()}',
+                    style: AppTheme.bodyMedium,
+                  ),
                 ],
               ),
-            ],
-          ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '\$${crypto.currentPrice.toStringAsFixed(2)}',
+                  style: AppTheme.titleMedium,
+                ),
+                Text(
+                  '${isPositiveChange ? '+' : ''}${crypto.priceChangePercentage24h.toStringAsFixed(2)}%',
+                  style: AppTheme.bodyMedium.copyWith(color: changeColor),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
-    );
-  }
-
-  Widget _buildPriceChange(double percentage) {
-    final color = percentage >= 0 ? AppTheme.accentGreen : AppTheme.accentRed;
-    final percentageFormat = NumberFormat.decimalPercentPattern(decimalDigits: 2);
-    
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          percentage >= 0 ? '+\$' : '-\$',
-          style: TextStyle(
-            color: color,
-            fontWeight: FontWeight.w600,
-            fontSize: 12,
-          ),
-        ),
-        Text(
-          '${percentage.abs().toStringAsFixed(2)}',
-          style: TextStyle(
-            color: color,
-            fontWeight: FontWeight.w600,
-            fontSize: 12,
-          ),
-        ),
-        Container(
-          margin: const EdgeInsets.only(left: 4),
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(
-            '${percentage >= 0 ? '+' : ''}${percentageFormat.format(percentage / 100)}',
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

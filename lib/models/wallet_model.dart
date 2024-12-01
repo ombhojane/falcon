@@ -8,12 +8,14 @@ class WalletInfo {
   final String privateKey;
   final Map<String, double> balances;
   final WalletType walletType;
+  String name;
 
   WalletInfo({
     required this.address,
     required this.privateKey,
     required this.balances,
     required this.walletType,
+    this.name = '',
   });
 
   factory WalletInfo.fromJson(Map<String, dynamic> json) {
@@ -24,6 +26,7 @@ class WalletInfo {
       walletType: WalletType.values.firstWhere(
         (e) => e.toString() == json['walletType'],
       ),
+      name: json['name'] ?? '', // Added this line
     );
   }
 
@@ -33,6 +36,7 @@ class WalletInfo {
       'privateKey': privateKey,
       'balances': balances,
       'walletType': walletType.toString(),
+      'name': name, // Added this line
     };
   }
 

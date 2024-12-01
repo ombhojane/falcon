@@ -9,6 +9,7 @@ class CryptoCurrency {
   final double totalVolume;
   final double high24h;
   final double low24h;
+  final double balance;
 
   CryptoCurrency({
     required this.id,
@@ -21,6 +22,7 @@ class CryptoCurrency {
     required this.totalVolume,
     required this.high24h,
     required this.low24h,
+    this.balance = 0.0,
   });
 
   factory CryptoCurrency.fromJson(Map<String, dynamic> json) {
@@ -35,6 +37,7 @@ class CryptoCurrency {
       totalVolume: json['total_volume']?.toDouble() ?? 0.0,
       high24h: json['high_24h']?.toDouble() ?? 0.0,
       low24h: json['low_24h']?.toDouble() ?? 0.0,
+      balance: json['balance']?.toDouble() ?? 0.0,
     );
   }
 }
