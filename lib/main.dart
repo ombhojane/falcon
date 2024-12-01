@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
+import 'dart:convert';
 import 'models/crypto_model.dart';
+import 'models/user_settings.dart';
 import 'services/crypto_service.dart';
 import 'screens/search_screen.dart';
 import 'screens/crypto_detail_screen.dart';
@@ -64,13 +66,26 @@ class _HomePageState extends State<HomePage> {
   WalletInfo? _wallet;
   bool _isLoadingWallet = false;
   String _userName = "User";
+  String _userAvatar = "👤";
 
   @override
   void initState() {
     super.initState();
     _checkConnectivityAndLoad();
     _loadWallet();
-    _loadUserName();
+    _loadUserSettings();
+  }
+
+  Future<void> _loadUserSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final settingsJson = prefs.getString('user_settings');
+    if (settingsJson != null) {
+      final settings = UserSettings.fromJson(json.decode(settingsJson));
+      setState(() {
+        _userName = settings.name;
+        _userAvatar = settings.avatar;
+      });
+    }
   }
 
   Future<void> _loadUserName() async {
@@ -181,7 +196,6 @@ class _HomePageState extends State<HomePage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Header with profile and actions
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -194,8 +208,9 @@ class _HomePageState extends State<HomePage> {
                                         wallet: _wallet,
                                         onBack: () => Navigator.pop(context),
                                         onWalletImport: _importWallet,
-                                        onNameUpdate: (name) => setState(() {
+                                        onNameUpdate: (name, avatar) => setState(() {
                                           _userName = name;
+                                          _userAvatar = avatar;
                                           if (_wallet != null) {
                                             _wallet!.name = name;
                                           }
@@ -206,10 +221,19 @@ class _HomePageState extends State<HomePage> {
                                 },
                                 child: Row(
                                   children: [
-                                    CircleAvatar(
-                                      backgroundColor: AppTheme.surfaceDark,
-                                      radius: 20,
-                                      child: Icon(Icons.account_circle, color: AppTheme.textLight),
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.surfaceDark,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          _userAvatar,
+                                          style: const TextStyle(fontSize: 20),
+                                        ),
+                                      ),
                                     ),
                                     const SizedBox(width: 12),
                                     Text(

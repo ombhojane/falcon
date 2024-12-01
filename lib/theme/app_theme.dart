@@ -60,8 +60,15 @@ class AppTheme {
   static final TextStyle bodyMedium = GoogleFonts.montserrat(
     fontSize: 14,
     fontWeight: FontWeight.normal,
-    color: textGrey,
+    color: textLight,
     letterSpacing: 0.25,
+  );
+
+  static final TextStyle bodySmall = GoogleFonts.montserrat(
+    fontSize: 12,
+    fontWeight: FontWeight.normal,
+    color: textLight,
+    letterSpacing: 0.4,
   );
 
   static final TextStyle labelLarge = GoogleFonts.montserrat(
@@ -85,6 +92,7 @@ class AppTheme {
       titleMedium: titleMedium,
       bodyLarge: bodyLarge,
       bodyMedium: bodyMedium,
+      bodySmall: bodySmall,
       labelLarge: labelLarge,
     ),
     
@@ -137,4 +145,4 @@ class AppTheme {
       ),
     ),
   );
-} 
+}
